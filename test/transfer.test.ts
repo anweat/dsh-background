@@ -366,6 +366,7 @@ test('version gate: an unverified host version turns transfer off unless allowUn
       const hub = installTransfer(ctx, resolveConfig({ foregroundControl: true, allowUnverifiedHost: allow }), { hostVersion: '0.9.9' })
       const pending = r.call('slow', { label: 'g' }, { callId: 'cg' })
       await settle()
+      assert.deepEqual([hub.api.status().enabled, hub.api.status().hostVersion], [expected, '0.9.9'])
       const view = hub.api.list()[0]!
       assert.equal(view.controllable, expected)
       const result = hub.api.transfer('cg')

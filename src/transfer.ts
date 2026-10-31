@@ -52,6 +52,8 @@ export type InterruptResult = { ok: true } | { ok: false; reason: string }
 
 /** The programmatic API a later RPC handler or button calls. */
 export interface TransferApi {
+  /** Whether transfer / interrupt work on this host (version gate) and which dsh-tools version was seen. */
+  status(): { enabled: boolean; hostVersion?: string; verifiedVersions: readonly string[] }
   /** Running foreground calls, optionally of one agent (session id). */
   list(agentId?: string): RunningCallView[]
   /** Move one running call to the background. */
@@ -249,6 +251,7 @@ export function installTransfer(ctx: Context, config: ResolvedConfig, options: {
   }
 
   const api: TransferApi = {
+    status: () => ({ enabled: allowed, ...version === undefined ? {} : { hostVersion: version }, verifiedVersions: VERIFIED_TOOLS_VERSIONS }),
     list: (agentId) => [...calls.entries()]
       .filter(([id]) => agentId === undefined || id === agentId)
       .flatMap(([, perAgent]) => [...perAgent.values()].map(entry => ({ ...entry.view }))),
