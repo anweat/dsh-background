@@ -1,0 +1,7 @@
+# dsh-background bundle patch — installs the plugin as one more row over the active profile.
+#   dsh plugin --profile <name> add @anweat/dsh-background
+# Requires the host's jobs registry and job tools (dsh-jobs-local + dsh-tool-jobs); both are in the base bundle.
+# Settings (config of the `background` row) are optional; defaults apply.
+- insert:
+    - id: background
+      name: '@anweat/dsh-background'

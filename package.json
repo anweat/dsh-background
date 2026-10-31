@@ -1,0 +1,75 @@
+{
+  "name": "@anweat/dsh-background",
+  "version": "0.1.0",
+  "description": "Run any DeepSeek Harness tool call in the background: one `background_run` tool turns a tool call into an owned job (job_output / job_list / job_kill, completion notice) so the turn is not blocked.",
+  "license": "MIT",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "assets",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": "^22.19 || >=24"
+  },
+  "scripts": {
+    "build": "node scripts/clean-lib.mjs && tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --import ./test/isolate-home.mjs --test --experimental-transform-types test/*.test.ts",
+    "verify": "pnpm run typecheck && pnpm run build && pnpm test",
+    "prepublishOnly": "pnpm run verify"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "~4.0.4",
+    "@deepseek-ai/dsh-agent": ">=0.2.1-rc.2 <0.2.2-0",
+    "@deepseek-ai/dsh-jobs": ">=0.2.1-rc.2 <0.2.2-0",
+    "@deepseek-ai/dsh-llm": ">=0.2.1-rc.2 <0.2.2-0",
+    "@deepseek-ai/dsh-tools": ">=0.2.1-rc.2 <0.2.2-0",
+    "@deepseek-ai/schemastery": ">=3.18.2 <4"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": { "optional": true },
+    "@deepseek-ai/dsh-agent": { "optional": true },
+    "@deepseek-ai/dsh-jobs": { "optional": true },
+    "@deepseek-ai/dsh-llm": { "optional": true },
+    "@deepseek-ai/dsh-tools": { "optional": true },
+    "@deepseek-ai/schemastery": { "optional": true }
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "4.0.5",
+    "@deepseek-ai/dsh-agent": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-jobs": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-llm": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-session": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-system-prompt": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-tools": "0.2.1-rc.5",
+    "@deepseek-ai/schemastery": "3.18.5",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.0"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "packageManager": "pnpm@11.7.0",
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "plugin",
+    "background",
+    "jobs"
+  ]
+}
