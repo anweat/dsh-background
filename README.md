@@ -157,7 +157,7 @@ npx -y pnpm@11.7.0 run verify   # typecheck + peer ranges + build (server + clie
 
 单元测试用宿主真实的 `ToolRuntime` 和 `SystemPrompt`，只把 `ctx.jobs` 换成一个最小的假注册表。测试在 `test/`，`test/isolate-home.mjs` 把 `DSH_HOME` 指到临时目录。
 
-真实宿主验证用的探针插件和脚本在 [docs/validation/probe/](docs/validation/probe/)，记录在 [docs/validation/2026-10-31-rc5.md](docs/validation/2026-10-31-rc5.md)。
+真实宿主验证用的探针插件和脚本不在本仓库中（保存在作者本机的实验目录），记录在 [docs/validation/2026-10-31-rc5.md](docs/validation/2026-10-31-rc5.md)。
 
 ## 许可
 

@@ -154,5 +154,13 @@
     "plugin",
     "background",
     "jobs"
-  ]
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/anweat/dsh-background.git"
+  },
+  "homepage": "https://github.com/anweat/dsh-background#readme",
+  "bugs": {
+    "url": "https://github.com/anweat/dsh-background/issues"
+  }
 }

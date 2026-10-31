@@ -40,7 +40,7 @@ Any one of these would remove the hack; (A) is the smallest.
 ## Evidence
 
 - Prototype: `plugins/dsh-background` branch `proto/transfer`, `src/transfer.ts`; unit tests use the real `ToolRuntime`; real-host record in `docs/validation/<date>-transfer-proto.md`.
-- The failing baseline without the accessor: `docs/validation/logs/phase2-rc5.json` (every early-return run shows the `TypeError` on the kept `next()`).
+- The failing baseline without the accessor: the phase-2 experiment log `phase2-rc5.json` (kept outside this repository) (every early-return run shows the `TypeError` on the kept `next()`).
 - Versions: dispatch code in `packages/core/tools/src/index.ts` is identical across 0.2.1-rc.2 to rc.5 (git diff empty); exercised on 0.2.1-rc.5 and 0.2.0-rc.2.
 
 ## Non-goals
