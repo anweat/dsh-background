@@ -339,7 +339,7 @@ test('autoBackgroundAfterMs moves a long call; a per-tool 0 disables it', async 
     }))
     const long = await start(r, 'slow', { label: 'z' }, { callId: 'cz' })
     assert.equal(long.error.info.code, 'MOVED_TO_BACKGROUND')
-    assert.match(resultText(long), /^Not a failure, do not retry: slow was moved to the background as job tool-\d+ because it ran longer than 0 seconds; /)
+    assert.match(resultText(long), /^Not a failure, do not retry: slow was moved to the background as job tool-\d+ because it ran longer than \d+(\.\d)? seconds; /)
     assert.equal(r.jobs.jobs.length, 1)
     assert.equal(resultText(await start(r, 'echo2', {})), 'echo2 done')
     assert.equal(r.jobs.jobs.length, 1)

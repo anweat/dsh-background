@@ -82,7 +82,7 @@ type Release =
 
 /** Text of the placeholder a transferred call returns to the model. */
 export function transferPlaceholder(tool: string, jobId: string, cause: 'user' | 'auto' = 'user', afterMs = 0): string {
-  const why = cause === 'user' ? "at the user's request" : `because it ran longer than ${Math.round(afterMs / 1000)} seconds`
+  const why = cause === 'user' ? "at the user's request" : `because it ran longer than ${Math.round(afterMs / 100) / 10} seconds`
   return `Not a failure, do not retry: ${tool} was moved to the background as job ${jobId} ${why}; `
     + 'a completion notice arrives when it finishes, read the result with job_output.'
 }
