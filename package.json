@@ -28,24 +28,37 @@
     "build": "node scripts/clean-lib.mjs && tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --import ./test/isolate-home.mjs --test --experimental-transform-types test/*.test.ts",
-    "verify": "pnpm run typecheck && pnpm run build && pnpm test",
-    "prepublishOnly": "pnpm run verify"
+    "verify": "pnpm run typecheck && pnpm run test:peers && pnpm run build && pnpm test",
+    "prepublishOnly": "pnpm run verify",
+    "test:peers": "node test/compat/check-peer-ranges.js"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "~4.0.4",
-    "@deepseek-ai/dsh-agent": ">=0.2.1-rc.2 <0.2.2-0",
-    "@deepseek-ai/dsh-jobs": ">=0.2.1-rc.2 <0.2.2-0",
-    "@deepseek-ai/dsh-llm": ">=0.2.1-rc.2 <0.2.2-0",
-    "@deepseek-ai/dsh-tools": ">=0.2.1-rc.2 <0.2.2-0",
+    "@deepseek-ai/dsh-agent": ">=0.2.0-rc.2 <0.2.1-0 || >=0.2.1-rc.2 <0.2.2-0",
+    "@deepseek-ai/dsh-jobs": ">=0.2.0-rc.2 <0.2.1-0 || >=0.2.1-rc.2 <0.2.2-0",
+    "@deepseek-ai/dsh-llm": ">=0.2.0-rc.2 <0.2.1-0 || >=0.2.1-rc.2 <0.2.2-0",
+    "@deepseek-ai/dsh-tools": ">=0.2.0-rc.2 <0.2.1-0 || >=0.2.1-rc.2 <0.2.2-0",
     "@deepseek-ai/schemastery": ">=3.18.2 <4"
   },
   "peerDependenciesMeta": {
-    "@deepseek-ai/cordis": { "optional": true },
-    "@deepseek-ai/dsh-agent": { "optional": true },
-    "@deepseek-ai/dsh-jobs": { "optional": true },
-    "@deepseek-ai/dsh-llm": { "optional": true },
-    "@deepseek-ai/dsh-tools": { "optional": true },
-    "@deepseek-ai/schemastery": { "optional": true }
+    "@deepseek-ai/cordis": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-agent": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-jobs": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-llm": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-tools": {
+      "optional": true
+    },
+    "@deepseek-ai/schemastery": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "4.0.5",
