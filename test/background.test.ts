@@ -13,7 +13,7 @@ test('starts the nested call as an owned job and answers at once', async () => {
     assert.equal(r.jobs.jobs.length, 1)
     const job = r.jobs.jobs[0]!
     assert.match(job.id, /^tool-/)
-    assert.equal(resultText(started), `slow started in the background as job ${job.id} (wait for a). Its result arrives with the completion notice; check with job_output, stop with job_kill. Do not wait or poll unless you need the result now.`)
+    assert.equal(resultText(started), `slow started in the background as job ${job.id} (wait for a). A completion notice arrives when it finishes; read the result with job_output, stop it with job_kill. Do not wait or poll unless you need the result now.`)
     assert.equal(job.spec.kind, 'tool')
     assert.equal(job.spec.label, 'slow: wait for a')
     assert.equal(job.spec.owner, 'sess-A')

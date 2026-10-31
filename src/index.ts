@@ -22,7 +22,7 @@ export type { Config as BackgroundConfig } from './config.ts'
 
 /** One short sentence in the system prompt; the details live in the skill. */
 function promptText(toolName: string): string {
-  return `${toolName}(tool, arguments, description) runs one other tool call in the background and returns a job id at once; the result arrives later as a completion notice. `
+  return `${toolName}(tool, arguments, description) runs one other tool call in the background and returns a job id at once; a completion notice tells you when it is done, then read the result with job_output. `
     + 'Use it for a slow call you do not need yet, so the user can keep talking to you; otherwise call the tool directly. See the dsh-background skill.'
 }
 

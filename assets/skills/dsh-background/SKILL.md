@@ -5,7 +5,7 @@ description: Use when a tool call is slow and you do not need its result yet, so
 
 # dsh-background
 
-`background_run(tool, arguments, description)` starts one other tool call as a background job and returns a job id at once. Your turn is not blocked, and the user can interrupt or give new instructions while it runs. When the tool finishes, the host sends a completion notice; read the result with `job_output`.
+`background_run(tool, arguments, description)` starts one other tool call as a background job and returns a job id at once. Your turn is not blocked, and the user can interrupt or give new instructions while it runs. When the tool finishes, the host sends a completion notice (it does not carry the result); read the result with `job_output`.
 
 ```json
 {"tool":"web_fetch","arguments":{"url":"https://example.com/big-report"},"description":"Fetch the big report"}

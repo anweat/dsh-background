@@ -57,7 +57,7 @@ export function createBackgroundTool(ctx: Context, config: ResolvedConfig): Back
   const definition = defineTool({
     name: config.toolName,
     description: 'Run another tool call in the background. Returns a job id at once, so you can keep working or answer the user; '
-      + 'the tool\'s result arrives later with the job\'s completion notice (read it with job_output, stop it with job_kill). '
+      + 'a completion notice arrives when the tool finishes (read the result with job_output, stop it with job_kill). '
       + 'Give the target tool name, the arguments exactly as that tool\'s own schema defines them, and a one-line description. '
       + 'Do not use it for tools that write the same files or state as other tools you are running, or for tools that need the user\'s answer.',
     parameters: {
@@ -79,7 +79,7 @@ export function createBackgroundTool(ctx: Context, config: ResolvedConfig): Back
       render: (_args, value) => [{
         type: 'text',
         text: `${value.tool} started in the background as job ${value.jobId} (${value.description}). `
-          + 'Its result arrives with the completion notice; check with job_output, stop with job_kill. '
+          + 'A completion notice arrives when it finishes; read the result with job_output, stop it with job_kill. '
           + 'Do not wait or poll unless you need the result now.',
       }],
     },
