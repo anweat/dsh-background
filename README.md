@@ -107,6 +107,10 @@ dsh plugin --profile <name> add @anweat/dsh-background
 - 转入后台的调用，真实结果只进 job，不经过 post-execute 策略和 `tools/result` 观察者（那里看到的只有占位）。
 - 占位结果只能是错误形态（R2），客户端可能把它渲染成失败样式。
 - 原型阶段没有 UI（dock 按钮、设置卡片）。
+- 忙时回车默认是“排队”（next-turn），不触发插话策略，要 Ctrl/Cmd+Enter 或改成 steer。
+- 转入后台的调用不再受工具自己的 `timeoutMs` 约束。
+
+验证记录：[docs/validation/2026-10-31-transfer-proto.md](docs/validation/2026-10-31-transfer-proto.md)。
 
 ## 已知限制
 
