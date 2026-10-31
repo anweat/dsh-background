@@ -12,6 +12,8 @@ import { Config, resolveConfig } from './config.ts'
 import { createBackgroundTool } from './tool.ts'
 import { registerSkillWhenAvailable } from './skill.ts'
 import { installTransfer } from './transfer.ts'
+import type { TransferHub } from './transfer.ts'
+import { registerRpc } from './rpc.ts'
 import type { TransferApi } from './transfer.ts'
 
 export type { TransferApi, RunningCallView, TransferResult, InterruptResult } from './transfer.ts'
@@ -45,11 +47,21 @@ export function apply(ctx: Context, config: Config): void {
   // Work that outlives the call must not outlive the code: unloading aborts every live nested call.
   ctx.effect(() => () => tool.abortAll('dsh-background was unloaded'))
 
+  let hub: TransferHub | undefined
   if (resolved.foregroundControl) {
-    const hub = installTransfer(ctx, resolved)
+    hub = installTransfer(ctx, resolved)
     ctx.provide('backgroundTransfer', hub.api)
-    ctx.effect(() => () => hub.abortDetached('dsh-background was unloaded'))
+    const installed = hub
+    ctx.effect(() => () => installed.abortDetached('dsh-background was unloaded'))
   }
+  // The dock's channel is registered even when foreground control is off, so the dock can read `status` and stay hidden.
+  registerRpc(ctx, {
+    ...hub === undefined ? {} : { hub },
+    foregroundControl: resolved.foregroundControl,
+    defaultPolicy: resolved.onUserMessageWhileToolRuns,
+    jobs: () => ctx.get('jobs') as never,
+    agent: (sessionId) => ctx.get('agents')?.get(sessionId as never),
+  })
 
   registerSkillWhenAvailable(ctx)
   ;(ctx as any).inject(['systemPrompt'], (promptCtx: any) => {

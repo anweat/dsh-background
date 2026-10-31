@@ -44,9 +44,14 @@ export class FakeJobs {
     })
     return id
   }
-  list(caller?: string): { id: string; kind: string; status: string; owner?: string }[] {
+  list(caller?: string): { id: string; kind: string; label: string; status: string; owner?: string; progress?: string; detail?: string; startedAt: number }[] {
     return this.jobs.filter(job => job.spec.owner === undefined || job.spec.owner === caller)
-      .map(job => ({ id: job.id, kind: job.spec.kind, status: job.status, owner: job.spec.owner }))
+      .map(job => ({ id: job.id, kind: job.spec.kind, label: job.spec.label, status: job.status, owner: job.spec.owner, progress: job.progress, detail: job.detail, startedAt: 1 }))
+  }
+  get(id: string, _caller?: string): { kind: string } {
+    const job = this.jobs.find(candidate => candidate.id === id)
+    if (job === undefined) throw new Error(`unknown job ${id}`)
+    return { kind: job.spec.kind }
   }
   kill(id: string, _caller?: string, reason?: string): 'requested' | 'already-finished' {
     const job = this.jobs.find(candidate => candidate.id === id)!
