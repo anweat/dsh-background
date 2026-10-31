@@ -75,12 +75,13 @@ interface Entry {
 }
 
 type Release =
-  | { kind: 'transferred'; jobId: string }
+  | { kind: 'transferred'; jobId: string; cause: 'user' | 'auto' }
   | { kind: 'interrupt-timeout' }
 
 /** Text of the placeholder a transferred call returns to the model. */
-export function transferPlaceholder(tool: string, jobId: string): string {
-  return `Not a failure, do not retry: ${tool} was moved to the background as job ${jobId} at the user's request; `
+export function transferPlaceholder(tool: string, jobId: string, cause: 'user' | 'auto' = 'user', afterMs = 0): string {
+  const why = cause === 'user' ? "at the user's request" : `because it ran longer than ${Math.round(afterMs / 1000)} seconds`
+  return `Not a failure, do not retry: ${tool} was moved to the background as job ${jobId} ${why}; `
     + 'a completion notice arrives when it finishes, read the result with job_output.'
 }
 
@@ -175,7 +176,7 @@ export function installTransfer(ctx: Context, config: ResolvedConfig, options: {
     return undefined
   }
 
-  const transfer = (entry: Entry): TransferResult => {
+  const transfer = (entry: Entry, cause: 'user' | 'auto' = 'user'): TransferResult => {
     if (!allowed) return { ok: false, reason: `transfer is disabled: dsh-tools ${version} was not verified for it` }
     if (entry.view.state !== 'running') return { ok: false, reason: `the call is ${entry.view.state}` }
     if (!entry.view.controllable) return { ok: false, reason: `${entry.view.tool} cannot be moved to the background` }
@@ -195,7 +196,7 @@ export function installTransfer(ctx: Context, config: ResolvedConfig, options: {
         toolCall: { callId: entry.exec.callId, rootCallId: entry.exec.rootCallId ?? entry.exec.callId },
         ...config.outputLimitBytes === undefined ? {} : { outputLimitBytes: config.outputLimitBytes },
         run: (job) => {
-          job.append(`[background] ${view.tool} moved to the background after ${Math.round((Date.now() - view.startedAt) / 1000)}s\n`, { channel: 'log' })
+          job.append(`[background] ${view.tool} moved to the background after ${Math.round((Date.now() - view.startedAt) / 1000)}s (${cause})\n`, { channel: 'log' })
           job.updateProgress(`running ${view.tool}`)
           // The host fuses the turn's signal into the body for good (R3): a user "stop" after the transfer still ends it.
           const stoppedWithTurn = (): boolean => !own.signal.aborted && outerSignal.aborted
@@ -222,7 +223,7 @@ export function installTransfer(ctx: Context, config: ResolvedConfig, options: {
     view.jobId = jobId
     detached.add(own)
     void nextPromise.finally(() => detached.delete(own)).catch(() => {})
-    entry.release({ kind: 'transferred', jobId })
+    entry.release({ kind: 'transferred', jobId, cause })
     return { ok: true, jobId }
   }
 
@@ -293,7 +294,7 @@ export function installTransfer(ctx: Context, config: ResolvedConfig, options: {
 
     const autoMs = config.toolAutoBackgroundMs[exec.name] ?? config.autoBackgroundAfterMs
     if (allowed && autoMs !== undefined && autoMs > 0) {
-      entry.timers.push(setTimeout(() => { if (view.state === 'running') transfer(entry) }, autoMs))
+      entry.timers.push(setTimeout(() => { if (view.state === 'running') transfer(entry, 'auto') }, autoMs))
     }
 
     try {
@@ -308,7 +309,7 @@ export function installTransfer(ctx: Context, config: ResolvedConfig, options: {
       }
       if (winner.kind === 'rejected') throw winner.error
       if (winner.kind === 'transferred') {
-        return placeholder(view.tool, winner.jobId)
+        return placeholder(view.tool, winner.jobId, winner.cause, Date.now() - view.startedAt)
       }
       // interrupt-timeout: the body ignored the signal; release the call and let it finish unseen.
       if (!installSignalAccessor(exec)) return nextPromise // cannot detach safely: keep waiting
@@ -338,8 +339,8 @@ export function installTransfer(ctx: Context, config: ResolvedConfig, options: {
   }
 }
 
-function placeholder(tool: string, jobId: string): ToolExecutionResult {
-  const text = transferPlaceholder(tool, jobId)
+function placeholder(tool: string, jobId: string, cause: 'user' | 'auto', ranMs: number): ToolExecutionResult {
+  const text = transferPlaceholder(tool, jobId, cause, ranMs)
   return {
     isError: true,
     error: { message: text, info: { name: 'MovedToBackground', code: 'MOVED_TO_BACKGROUND' } },
