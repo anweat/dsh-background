@@ -10,6 +10,8 @@ const forbidden = [...new Set(imports.filter(id => !allowed.has(id)))].sort()
 assert.deepEqual(forbidden, [], `client bundle contains unavailable imports: ${forbidden.join(', ')}`)
 // The dock registers into the conversation input dock and talks to the plugin's own channel.
 assert.match(source, /conversation\.input\.dock/)
+assert.match(source, /plugins\.row\.config/)
+assert.match(source, /@anweat\/dsh-background#background/)
 assert.match(source, /\/dsh-background/)
 // The Host's buttons and state dots stay a module-table import, never inlined.
 assert.match(source, /@deepseek-ai\/dsh-client-ui-primitives/)

@@ -8,7 +8,7 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-tools'
-import { Config, resolveConfig } from './config.ts'
+import { Config, liveConfig } from './config.ts'
 import { createBackgroundTool } from './tool.ts'
 import { registerSkillWhenAvailable } from './skill.ts'
 import { installTransfer } from './transfer.ts'
@@ -40,25 +40,24 @@ function promptText(toolName: string): string {
 }
 
 export function apply(ctx: Context, config: Config): void {
-  const resolved = resolveConfig(config)
+  // Read live: the foreground-control settings are volatile (edited on the Plugins page without remounting the plugin).
+  const resolved = liveConfig(config)
   const tool = createBackgroundTool(ctx, resolved)
   // Registered under this plugin's context, so unloading the plugin (HMR, disable) unregisters the tool.
   ctx.tools.register(tool.definition)
   // Work that outlives the call must not outlive the code: unloading aborts every live nested call.
   ctx.effect(() => () => tool.abortAll('dsh-background was unloaded'))
 
-  let hub: TransferHub | undefined
-  if (resolved.foregroundControl) {
-    hub = installTransfer(ctx, resolved)
-    ctx.provide('backgroundTransfer', hub.api)
-    const installed = hub
-    ctx.effect(() => () => installed.abortDetached('dsh-background was unloaded'))
-  }
+  // The wrapper is always installed and passes every call through while `foregroundControl` is off, so switching the setting
+  // takes effect at once, without remounting the plugin.
+  const hub: TransferHub = installTransfer(ctx, resolved)
+  ctx.provide('backgroundTransfer', hub.api)
+  ctx.effect(() => () => hub.abortDetached('dsh-background was unloaded'))
   // The dock's channel is registered even when foreground control is off, so the dock can read `status` and stay hidden.
   registerRpc(ctx, {
-    ...hub === undefined ? {} : { hub },
-    foregroundControl: resolved.foregroundControl,
-    defaultPolicy: resolved.onUserMessageWhileToolRuns,
+    hub,
+    foregroundControl: () => resolved.foregroundControl,
+    defaultPolicy: () => resolved.onUserMessageWhileToolRuns,
     jobs: () => ctx.get('jobs') as never,
     agent: (sessionId) => ctx.get('agents')?.get(sessionId as never),
   })

@@ -4,7 +4,7 @@ import { defineTool } from '@deepseek-ai/dsh-tools'
 import { Context } from '@deepseek-ai/cordis'
 import { deliver, fakeAgent, resultText, rig, settle, text } from './harness.ts'
 import { installSignalAccessor, installTransfer, interruptedText, summarizeArguments, transferPlaceholder } from '../src/transfer.ts'
-import { resolveConfig } from '../src/config.ts'
+import { liveConfig, resolveConfig } from '../src/config.ts'
 
 const unhandled: unknown[] = []
 process.on('unhandledRejection', (reason) => { unhandled.push(reason) })
@@ -347,15 +347,48 @@ test('autoBackgroundAfterMs moves a long call; a per-tool 0 disables it', async 
   } finally { r.dispose() }
 })
 
-test('foregroundControl off: no wrapper, no service', async () => {
+test('foregroundControl off: calls pass through untouched and are not tracked; volatile settings are read live', async () => {
+  // Under the Loader a volatile field is a reference whose `.get()` follows the saved value; model it with a getter.
+  const state = { foregroundControl: false, policy: 'wait', autoMs: undefined as number | undefined }
+  const ref = <T,>(read: () => T) => ({ get: read })
+  const config = { foregroundControl: ref(() => state.foregroundControl), onUserMessageWhileToolRuns: ref(() => state.policy), autoBackgroundAfterMs: ref(() => state.autoMs) }
   const r = await rig({})
   try {
-    assert.equal(r.ctx.backgroundTransfer, undefined)
-    const pending = start(r, 'slow', { label: 'o' })
+    const hub = installTransfer(r.ctx, liveConfig(config as never))
+    const pending = start(r, 'slow', { label: 'o' }, { callId: 'co' })
     await settle()
+    assert.deepEqual(hub.api.list(), [], 'not tracked while off')
+    assert.equal(hub.api.transfer('co').ok, false)
     r.probe.release('o')
     assert.equal(resultText(await pending), 'slow o done')
+    // the Host's settings page saved foregroundControl: the next call is tracked without remounting
+    state.foregroundControl = true
+    const later = start(r, 'slow', { label: 'p' }, { callId: 'cp1' })
+    await settle()
+    assert.equal(hub.api.list().length, 1, 'tracked once switched on')
+    assert.equal(hub.api.transfer('cp1').ok, true)
+    await later
+    r.probe.release('p')
+    state.autoMs = 40
+    const auto = start(r, 'slow', { label: 'q' }, { callId: 'cq' })
+    assert.equal((await auto).error.info.code, 'MOVED_TO_BACKGROUND', 'a live auto-background delay applies to the next call')
+    r.probe.release('q')
+    // and back off
+    state.foregroundControl = false
+    const off = start(r, 'slow', { label: 'z' }, { callId: 'cz' })
+    await settle(); assert.deepEqual(hub.api.list(), [])
+    r.probe.release('z'); await off
   } finally { r.dispose() }
+})
+
+test('liveConfig reads plain values and volatile references alike, with the schema defaults', () => {
+  const plain = liveConfig({})
+  assert.deepEqual([plain.foregroundControl, plain.onUserMessageWhileToolRuns, plain.autoBackgroundAfterMs, plain.toolPolicies], [false, 'wait', undefined, {}])
+  let policies: Record<string, string> = { a: 'background' }
+  const live = liveConfig({ foregroundControl: { get: () => true }, toolPolicies: { get: () => policies }, autoBackgroundAfterMs: { get: () => 250 } } as never)
+  assert.deepEqual([live.foregroundControl, live.toolPolicies, live.autoBackgroundAfterMs], [true, { a: 'background' }, 250])
+  policies = { b: 'interrupt' }
+  assert.deepEqual(live.toolPolicies, { b: 'interrupt' })
 })
 
 test('version gate: an unverified host version turns transfer off unless allowUnverifiedHost', async () => {

@@ -45,6 +45,7 @@
     "@deepseek-ai/dsh-client-locale": ">=0.2.0-rc.2 <0.2.1-0 || >=0.2.1-rc.2 <0.2.2-0",
     "@deepseek-ai/dsh-client-store": ">=0.2.0-rc.2 <0.2.1-0 || >=0.2.1-rc.2 <0.2.2-0",
     "@deepseek-ai/dsh-client-ui-conversation": ">=0.2.0-rc.2 <0.2.1-0 || >=0.2.1-rc.2 <0.2.2-0",
+    "@deepseek-ai/dsh-client-ui-plugin-manager": ">=0.2.0-rc.2 <0.2.1-0 || >=0.2.1-rc.2 <0.2.2-0",
     "@deepseek-ai/dsh-client-ui-primitives": ">=0.2.0-rc.2 <0.2.1-0 || >=0.2.1-rc.2 <0.2.2-0",
     "@deepseek-ai/dsh-client-ui-renderer": ">=0.2.0-rc.2 <0.2.1-0 || >=0.2.1-rc.2 <0.2.2-0",
     "@deepseek-ai/dsh-client-ui-session": ">=0.2.0-rc.2 <0.2.1-0 || >=0.2.1-rc.2 <0.2.2-0",
@@ -74,6 +75,9 @@
       "optional": true
     },
     "@deepseek-ai/dsh-client-ui-conversation": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-ui-plugin-manager": {
       "optional": true
     },
     "@deepseek-ai/dsh-client-ui-primitives": {
@@ -109,6 +113,7 @@
     "@deepseek-ai/dsh-client-locale": "0.2.1-rc.5",
     "@deepseek-ai/dsh-client-store": "0.2.1-rc.5",
     "@deepseek-ai/dsh-client-ui-conversation": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-client-ui-plugin-manager": "0.2.1-rc.5",
     "@deepseek-ai/dsh-client-ui-primitives": "0.2.1-rc.5",
     "@deepseek-ai/dsh-client-ui-renderer": "0.2.1-rc.5",
     "@deepseek-ai/dsh-client-ui-session": "0.2.1-rc.5",
@@ -133,7 +138,8 @@
         "@deepseek-ai/dsh-client-connection",
         "@deepseek-ai/dsh-client-locale",
         "@deepseek-ai/dsh-client-ui-renderer",
-        "@deepseek-ai/dsh-client-ui-conversation"
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-plugin-manager"
       ],
       "platform": "web"
     },

@@ -4,6 +4,7 @@ import type { JobId } from '@deepseek-ai/dsh-jobs/brand'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { ForegroundController } from './foreground.ts'
 import { Dock, type DockInjected } from './Dock.tsx'
+import { SettingsCard } from './SettingsCard.tsx'
 import { en, NS, zh } from './locales.ts'
 import { ensureStyles } from './styles.ts'
 
@@ -48,4 +49,8 @@ export function apply(ctx: Context): void {
         }
       },
     }, Dock)), 'dsh-background: input dock')
+
+  // The plugin's configuration on its Plugins page. The row id is the one `cordis.patch.yml` declares.
+  ctx.effect(() => ctx.slots.inject('plugins.row.config', () =>
+    ctx.slots.register({ name: 'plugins.row.config', key: '@anweat/dsh-background#background', locale: NS }, SettingsCard)), 'dsh-background: settings page')
 }

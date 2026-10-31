@@ -56,7 +56,7 @@ test('status: enabled when foreground control is on; off or gated otherwise', as
 
 test('status on a gated host (hub reports disabled)', async () => {
   const handler = createHandler({
-    foregroundControl: true, defaultPolicy: 'wait', jobs: () => undefined, agent: () => undefined,
+    foregroundControl: () => true, defaultPolicy: () => 'wait', jobs: () => undefined, agent: () => undefined,
     hub: { api: { status: () => ({ enabled: false, hostVersion: '9.9.9', verifiedVersions: ['0.2.1-rc.5'] }) } as never, policyFor: () => 'wait' },
   })
   const status = (await handler('status', {}, new AbortController().signal, { principal: { kind: 'owner' } })).value as any
@@ -134,7 +134,7 @@ test('gated or off: transfer / interrupt refuse with a reason and calls is empty
     assert.deepEqual((await off.call('calls', { sessionId: 'sess-A' })).value.calls, [])
   } finally { off.r.dispose() }
   const gated = createHandler({
-    foregroundControl: true, defaultPolicy: 'wait', jobs: () => undefined, agent: () => ({ id: 'sess-A' }),
+    foregroundControl: () => true, defaultPolicy: () => 'wait', jobs: () => undefined, agent: () => ({ id: 'sess-A' }),
     hub: {
       api: { list: () => [{ callId: 'c', rootCallId: 'c', agentId: 'sess-A', tool: 'slow', summary: '', startedAt: 1, state: 'running', controllable: false }], transfer: () => ({ ok: false, reason: 'transfer is disabled: dsh-tools 9.9.9 was not verified for it' }), interrupt: () => ({ ok: false, reason: 'x' }), status: () => ({ enabled: false, verifiedVersions: [] }) } as never,
       policyFor: () => 'wait',

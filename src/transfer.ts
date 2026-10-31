@@ -268,7 +268,7 @@ export function installTransfer(ctx: Context, config: ResolvedConfig, options: {
 
   ctx.on('tools/execute', async (exec: any, next: () => Promise<ToolExecutionResult>) => {
     const agent = exec.agent
-    if (agent === undefined || excluded(exec.name)) return next()
+    if (!config.foregroundControl || agent === undefined || excluded(exec.name)) return next()
 
     const outerSignal: AbortSignal = exec.signal
     const own = new AbortController()

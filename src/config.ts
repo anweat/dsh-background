@@ -4,6 +4,7 @@
  * @module dsh-background/config
  */
 
+import type { Volatile } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 
 /**
@@ -44,15 +45,15 @@ export interface Config {
    * Track every foreground tool call so it can be moved to the background or interrupted while it runs
    * (programmatic API, `onUserMessageWhileToolRuns`, `autoBackgroundAfterMs`). Prototype: depends on host internals, off by default.
    */
-  foregroundControl?: boolean
+  foregroundControl?: Volatile<boolean>
   /** What a user steering message does to the foreground tools that are running: wait (host default), move to the background, or interrupt. */
-  onUserMessageWhileToolRuns?: ToolPolicy
+  onUserMessageWhileToolRuns?: Volatile<ToolPolicy>
   /** Per-tool override of `onUserMessageWhileToolRuns`. */
-  toolPolicies?: Record<string, ToolPolicy>
+  toolPolicies?: Volatile<Record<string, ToolPolicy>>
   /** Tools that always `wait` unless `toolPolicies` names them. */
   waitOnlyTools?: string[]
   /** Move a foreground tool to the background after it ran this long (milliseconds). Unset: never. */
-  autoBackgroundAfterMs?: number
+  autoBackgroundAfterMs?: Volatile<number | undefined>
   /** Per-tool override of `autoBackgroundAfterMs`; 0 disables it for that tool. */
   toolAutoBackgroundMs?: Record<string, number>
   /** How long an interrupted tool may take to stop before the call is released anyway (milliseconds). */
@@ -61,18 +62,19 @@ export interface Config {
   allowUnverifiedHost?: boolean
 }
 
-export const Config: z<Config> = z.object({
+// Typed loosely: the volatile fields are `Volatile<T>` references in `Config` but the schema type names a transitive package.
+export const Config: z<any> = z.object({
   toolName: z.string().default('background_run').description('Model-facing tool name.'),
   maxResultChars: z.natural().min(1).default(20_000).description('Longest stored result text, in characters.'),
   outputLimitBytes: z.natural().min(1).description('Optional UTF-8 byte cap for each completion notice or job_output read.'),
   maxConcurrentJobs: z.natural().min(1).default(4).description('Live background tool jobs allowed per agent.'),
   denyTools: z.array(z.string()).default([]).description('Tool names that may never run in the background.'),
   nativeBackgroundTools: z.array(z.string()).default([...DEFAULT_NATIVE_BACKGROUND_TOOLS]).description('Tools that background themselves; refused with a pointer to their own route.'),
-  foregroundControl: z.boolean().default(false).description('Track foreground tool calls so they can be moved to the background or interrupted (prototype, host-internals dependent).'),
-  onUserMessageWhileToolRuns: z.union(['wait', 'background', 'interrupt'] as const).default('wait').description('What a user steering message does to running foreground tools.'),
-  toolPolicies: z.dict(z.union(['wait', 'background', 'interrupt'] as const)).default({}).description('Per-tool override of the steering policy.'),
+  foregroundControl: z.boolean().default(false).volatile().description('Track foreground tool calls so they can be moved to the background or interrupted (prototype, host-internals dependent).'),
+  onUserMessageWhileToolRuns: z.union(['wait', 'background', 'interrupt'] as const).default('wait').volatile().description('What a user steering message does to running foreground tools.'),
+  toolPolicies: z.dict(z.union(['wait', 'background', 'interrupt'] as const)).default({}).volatile().description('Per-tool override of the steering policy.'),
   waitOnlyTools: z.array(z.string()).default([...DEFAULT_WAIT_ONLY_TOOLS]).description('Tools that always wait unless toolPolicies names them.'),
-  autoBackgroundAfterMs: z.natural().min(1).description('Move a foreground tool to the background after it ran this long.'),
+  autoBackgroundAfterMs: z.natural().min(1).volatile().description('Move a foreground tool to the background after it ran this long.'),
   toolAutoBackgroundMs: z.dict(z.natural()).default({}).description('Per-tool override of autoBackgroundAfterMs; 0 disables it for the tool.'),
   interruptGraceMs: z.natural().min(0).default(3000).description('How long an interrupted tool may take to stop before the call is released.'),
   allowUnverifiedHost: z.boolean().default(false).description('Allow transfer on a host version the prototype was not verified on.'),
@@ -96,22 +98,41 @@ export interface ResolvedConfig {
   allowUnverifiedHost: boolean
 }
 
+/** A config as `apply` receives it, or as a test writes it: the volatile fields are references (`.get()`) under the Loader, plain values by hand. */
+export type LooseConfig = { [K in keyof Config]?: unknown }
+
+/** The value of a field that may be a volatile reference. */
+function val<T>(field: unknown): T | undefined {
+  if (field !== null && typeof field === 'object' && typeof (field as { get?: unknown }).get === 'function') return (field as { get(): T }).get()
+  return field as T | undefined
+}
+
 /** Fill defaults for a hand-built config (tests); the Loader already applies the schema. */
-export function resolveConfig(config: Config = {}): ResolvedConfig {
-  return {
-    toolName: config.toolName ?? 'background_run',
-    maxResultChars: config.maxResultChars ?? 20_000,
-    outputLimitBytes: config.outputLimitBytes,
-    maxConcurrentJobs: config.maxConcurrentJobs ?? 4,
-    denyTools: new Set(config.denyTools ?? []),
-    nativeBackgroundTools: new Set(config.nativeBackgroundTools ?? DEFAULT_NATIVE_BACKGROUND_TOOLS),
-    foregroundControl: config.foregroundControl ?? false,
-    onUserMessageWhileToolRuns: config.onUserMessageWhileToolRuns ?? 'wait',
-    toolPolicies: config.toolPolicies ?? {},
-    waitOnlyTools: new Set(config.waitOnlyTools ?? DEFAULT_WAIT_ONLY_TOOLS),
-    autoBackgroundAfterMs: config.autoBackgroundAfterMs,
-    toolAutoBackgroundMs: config.toolAutoBackgroundMs ?? {},
-    interruptGraceMs: config.interruptGraceMs ?? 3000,
-    allowUnverifiedHost: config.allowUnverifiedHost ?? false,
+export function resolveConfig(config: LooseConfig = {}): ResolvedConfig {
+  return liveConfig(config)
+}
+
+/**
+ * Config read live: every property reads the Loader's config object at the moment it is used. The four foreground-control
+ * settings are `.volatile()`, so the Host's settings page writes them into the running configuration without remounting the
+ * plugin; a snapshot taken at `apply` would never see the change.
+ */
+export function liveConfig(config: LooseConfig): ResolvedConfig {
+  const read = {
+    get toolName() { return (config.toolName as string | undefined) ?? 'background_run' },
+    get maxResultChars() { return (config.maxResultChars as number | undefined) ?? 20_000 },
+    get outputLimitBytes() { return config.outputLimitBytes as number | undefined },
+    get maxConcurrentJobs() { return (config.maxConcurrentJobs as number | undefined) ?? 4 },
+    get denyTools() { return new Set((config.denyTools as string[] | undefined) ?? []) },
+    get nativeBackgroundTools() { return new Set((config.nativeBackgroundTools as string[] | undefined) ?? DEFAULT_NATIVE_BACKGROUND_TOOLS) },
+    get foregroundControl() { return val<boolean>(config.foregroundControl) ?? false },
+    get onUserMessageWhileToolRuns() { return val<ToolPolicy>(config.onUserMessageWhileToolRuns) ?? 'wait' },
+    get toolPolicies() { return val<Record<string, ToolPolicy>>(config.toolPolicies) ?? {} },
+    get waitOnlyTools() { return new Set((config.waitOnlyTools as string[] | undefined) ?? DEFAULT_WAIT_ONLY_TOOLS) },
+    get autoBackgroundAfterMs() { return val<number>(config.autoBackgroundAfterMs) },
+    get toolAutoBackgroundMs() { return (config.toolAutoBackgroundMs as Record<string, number> | undefined) ?? {} },
+    get interruptGraceMs() { return (config.interruptGraceMs as number | undefined) ?? 3000 },
+    get allowUnverifiedHost() { return (config.allowUnverifiedHost as boolean | undefined) ?? false },
   }
+  return read as ResolvedConfig
 }

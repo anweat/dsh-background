@@ -105,3 +105,14 @@ test('act sends the session and call, marks the call pending, keeps a refusal as
   assert.deepEqual(await down.act('transfer', 'x'), { ok: false, reason: 'the request failed' })
   controller.dispose(); down.dispose()
 })
+
+test('settings parsers: tool policies and the auto-background delay', async () => {
+  const { parseToolPolicies, parseDelay } = await import('../src/client/parse.ts')
+  assert.deepEqual(parseToolPolicies(''), {})
+  assert.deepEqual(parseToolPolicies('{"web_call":"background","browser_call":"interrupt","x":"wait"}'), { web_call: 'background', browser_call: 'interrupt', x: 'wait' })
+  for (const bad of ['[]', '"x"', 'null', '{"a":"later"}', '{"a":1}', '{', 'nope']) assert.equal(parseToolPolicies(bad), undefined, bad)
+  assert.equal(parseDelay(''), null)
+  assert.equal(parseDelay('  '), null)
+  assert.equal(parseDelay('1500'), 1500)
+  for (const bad of ['0', '-5', '1.5', 'abc', '1e3x']) assert.equal(parseDelay(bad), undefined, bad)
+})

@@ -144,7 +144,7 @@ export function Dock(props: DockProps) {
               onClick={() => { setOpen(value => !value) }}
             >
               <span className={css.headerText}>{t('jobs.header')}{liveCount > 0 ? ` · ${t('jobs.live', { n: liveCount })}` : ''}</span>
-              <span className={css.chevron} aria-hidden>{open ? '▾' : '▸'}</span>
+              <span className={css.chevron} aria-hidden />
             </button>
             {open && (
               <ul className={css.list}>

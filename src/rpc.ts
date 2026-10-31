@@ -27,8 +27,8 @@ export interface RpcServices {
   /** Present when `foregroundControl` is on. */
   hub?: { api: TransferApi; policyFor(tool: string): ToolPolicyName }
   /** The configured fallback policy (shown by `status`). */
-  defaultPolicy: ToolPolicyName
-  foregroundControl: boolean
+  defaultPolicy: () => ToolPolicyName
+  foregroundControl: () => boolean
   jobs: () => JobsLike | undefined
   /** Resolve a live session id to its agent; undefined for an unknown or disposed session. */
   agent: (sessionId: string) => { id: any } | undefined
@@ -50,11 +50,11 @@ export function createHandler(services: RpcServices): Handler {
       if (endpoint === 'status') {
         const status = services.hub?.api.status()
         const view: StatusView = {
-          foregroundControl: services.foregroundControl,
-          enabled: services.foregroundControl && status?.enabled === true,
+          foregroundControl: services.foregroundControl(),
+          enabled: services.foregroundControl() && status?.enabled === true,
           ...status?.hostVersion === undefined ? {} : { hostVersion: status.hostVersion },
           verifiedVersions: status?.verifiedVersions ?? [],
-          defaultPolicy: services.defaultPolicy,
+          defaultPolicy: services.defaultPolicy(),
         }
         return { ok: true, value: view }
       }
@@ -68,7 +68,7 @@ export function createHandler(services: RpcServices): Handler {
       switch (endpoint) {
         case 'calls': {
           const hub = services.hub
-          const calls: CallView[] = hub === undefined ? [] : hub.api.list(sessionId)
+          const calls: CallView[] = hub === undefined || !services.foregroundControl() ? [] : hub.api.list(sessionId)
             .filter(call => call.state === 'running' || call.state === 'interrupting')
             .map(call => ({
               callId: call.callId, tool: call.tool, summary: call.summary, startedAt: call.startedAt,
@@ -99,7 +99,7 @@ export function createHandler(services: RpcServices): Handler {
           const callId = payload.callId
           if (typeof callId !== 'string' || callId.length === 0 || callId.length > 200) return fail('bad-request', 'callId must be a non-empty string')
           const hub = services.hub
-          if (hub === undefined) return { ok: true, value: { ok: false, reason: 'foreground control is off' } satisfies ActionResult }
+          if (hub === undefined || !services.foregroundControl()) return { ok: true, value: { ok: false, reason: 'foreground control is off' } satisfies ActionResult }
           // The call is looked up inside this session only, so another session's call id is an unknown id here.
           const result = endpoint === 'transfer' ? hub.api.transfer(callId, sessionId) : hub.api.interrupt(callId, sessionId)
           return { ok: true, value: result satisfies ActionResult }
