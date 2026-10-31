@@ -85,7 +85,7 @@ dsh plugin --profile <name> add @anweat/dsh-background
 
 ## 前台工具控制（原型，分支 `proto/transfer`）
 
-不是 0.1.0 的内容，默认关闭（`foregroundControl: false`）。打开后，插件用一个 `tools/execute` 包装跟踪每个前台工具调用，并允许在它运行期间：
+不是 0.1.0 的内容，默认关闭（`foregroundControl: false`），可以在插件页或配置里打开，修改立即生效，不重载插件。打开后，插件用一个 `tools/execute` 包装跟踪每个前台工具调用，并允许在它运行期间：
 
 - **转入后台**：登记一个 `kind: 'tool'` 的 job，job 等原调用跑完，真实结果用 `job_output` 读；这一步立即用一个 `isError` 占位结束（`Not a failure, do not retry: <tool> was moved to the background as job <id> ...`），模型马上带着用户的消息发起下一次请求。
 - **打断**：只取消这一个工具（包装层替换进去的 signal），不取消整个 turn；工具结果是 `ABORTED`，文字是 `Interrupted by the user: ...`。
@@ -100,13 +100,32 @@ dsh plugin --profile <name> add @anweat/dsh-background
 
 不处理：`background_run` 自己、`job_*`、`denyTools`、`nativeBackgroundTools`（`bash` 等自带后台模式的工具）。
 
+### 输入框上方的 dock（`feat/dock`）
+
+foreground control 打开后，会话里有前台工具在跑时，输入框上方出现一行（和待发队列、待办面板同一个 `conversation.input.dock` 槽位，样式一致）：
+
+```
+tr_slow  {"ms":20000,"tag":"A"}                 0:04   [转入后台] [打断]
+```
+
+- 工具名、参数摘要、一秒一跳的计时、两个按钮。点 **转入后台**：这一步立刻结束，模型马上继续，工具变成后台任务；点 **打断**：只取消这个工具。
+- 下面有可折叠的 **后台任务** 区：本插件的任务（运行中的加最近 3 个已结束的），带进度行和 **停止** 按钮。这一区的数据来自宿主自己的 `job.list` 推送流，停止走宿主的人类 kill，不轮询。
+- 没有可显示的内容，或者 foreground control 关闭、宿主版本没通过门禁时，整个 dock 不渲染。
+- 前台调用列表没有推送通道（宿主的 Remote 流只给类型化网关用），所以只在会话忙且 dock 可用时每秒轮询一次插件私有通道 `/dsh-background`。
+
+私有通道的端点（`src/rpc-types.ts`）：`status`、`calls`、`jobs`、`transfer`、`interrupt`、`killJob`。宿主的 RPC 层不告诉处理器浏览器正在看哪个会话（Peer 只带 principal，登录的浏览器都是 `owner`），所以 `sessionId` 放在请求里，服务端检查：会话必须存在，调用或任务必须属于这个会话，别的会话的 callId 一律当作未知。
+
+插件页（插件 → `@anweat/dsh-background` → 点组件行）有一个小设置卡片：前台工具控制开关、插话策略、按工具设置（JSON）、自动转入后台毫秒数。这四项是 `volatile` 配置，保存后立刻生效。其余配置项仍在配置文件里改。
+
+文案在 `src/client/locales.ts`（`dsh-background.dock` 命名空间，中英）。验证记录：[docs/validation/2026-11-01-dock.md](docs/validation/2026-11-01-dock.md)。
+
 限制与风险：
 
 - **依赖宿主内部实现**（R1）：宿主在包装层提前返回后仍会执行 `exec.signal = ...`，而 exec 已被冻结，会抛错并丢掉真实结果。原型在返回前把 `exec.signal` 改成访问器属性绕过。已在 0.2.1-rc.5 和 0.2.0-rc.2 上验证；`dsh-tools` 版本不在已验证列表时转入后台被关闭（`allowUnverifiedHost` 可强制），宿主拒绝时 job 记为 `failed` 并写明原因。要长期使用应推动宿主提供官方的 detach 接口，草稿见 [docs/upstream-issue-detach-api.md](docs/upstream-issue-detach-api.md)。
 - **同一 turn 里点“停止”会连带停掉已转入后台的工具**（R3）：宿主总把调用方 signal 融合进工具本体。job 记为 `killed`，原因 `stopped together with the turn (user stop)`。turn 正常结束不会。
 - 转入后台的调用，真实结果只进 job，不经过 post-execute 策略和 `tools/result` 观察者（那里看到的只有占位）。
 - 占位结果只能是错误形态（R2），客户端可能把它渲染成失败样式。
-- 原型阶段没有 UI（dock 按钮、设置卡片）。
+- UI 只在 Web 客户端做过真实验证；Desktop 没有验证（客户端模块的加载方式、私有 RPC 通道在 Desktop 上是否可用）。
 - 忙时回车默认是“排队”（next-turn），不触发插话策略，要 Ctrl/Cmd+Enter 或改成 steer。
 - 转入后台的调用不再受工具自己的 `timeoutMs` 约束。
 
@@ -133,7 +152,7 @@ peer 范围：`>=0.2.0-rc.2 <0.2.1-0 || >=0.2.1-rc.2 <0.2.2-0`。
 
 ```bash
 npx -y pnpm@11.7.0 install
-npx -y pnpm@11.7.0 run verify   # typecheck + build + test
+npx -y pnpm@11.7.0 run verify   # typecheck + peer ranges + build (server + client bundle) + tests + client bundle check
 ```
 
 单元测试用宿主真实的 `ToolRuntime` 和 `SystemPrompt`，只把 `ctx.jobs` 换成一个最小的假注册表。测试在 `test/`，`test/isolate-home.mjs` 把 `DSH_HOME` 指到临时目录。
