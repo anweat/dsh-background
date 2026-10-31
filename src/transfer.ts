@@ -63,6 +63,8 @@ export interface TransferApi {
 }
 
 interface Entry {
+  /** The signal the call arrived with (turn / caller, plus any outer wrapper's). */
+  outerSignal: AbortSignal
   view: RunningCallView
   agent: any
   exec: any
@@ -183,7 +185,7 @@ export function installTransfer(ctx: Context, config: ResolvedConfig, options: {
     if (live >= config.maxConcurrentJobs) return { ok: false, reason: `too many background tool jobs for this agent (${live} of ${config.maxConcurrentJobs})` }
     if (!installSignalAccessor(entry.exec)) return { ok: false, reason: 'this host version does not allow detaching a running call (exec.signal could not be made an accessor)' }
 
-    const { own, nextPromise, view } = entry
+    const { own, nextPromise, view, outerSignal } = entry
     let jobId: string
     try {
       jobId = jobs.start({
@@ -195,11 +197,16 @@ export function installTransfer(ctx: Context, config: ResolvedConfig, options: {
         run: (job) => {
           job.append(`[background] ${view.tool} moved to the background after ${Math.round((Date.now() - view.startedAt) / 1000)}s\n`, { channel: 'log' })
           job.updateProgress(`running ${view.tool}`)
+          // The host fuses the turn's signal into the body for good (R3): a user "stop" after the transfer still ends it.
+          const stoppedWithTurn = (): boolean => !own.signal.aborted && outerSignal.aborted
           const done = nextPromise.then(
-            (result) => outcomeOf(result, own.signal.aborted, config.maxResultChars),
+            (result) => {
+              const outcome = outcomeOf(result, own.signal.aborted || outerSignal.aborted, config.maxResultChars)
+              return stoppedWithTurn() ? { ...outcome, detail: 'stopped together with the turn (user stop)' } : outcome
+            },
             (error: unknown) => {
               // The host rejected the detached call (R1 workaround no longer matches): the real result is lost.
-              if (own.signal.aborted) return { status: 'killed' as const }
+              if (own.signal.aborted || outerSignal.aborted) return { status: 'killed' as const }
               const reason = error instanceof Error ? error.message : String(error)
               log?.warn?.(`detached ${view.tool} call ${view.callId} rejected: ${reason}`)
               return { status: 'failed' as const, detail: oneLine(`the host rejected the detached call: ${reason}`), result: `The ${view.tool} call ended but the host could not hand over its result: ${reason}` }
@@ -278,7 +285,7 @@ export function installTransfer(ctx: Context, config: ResolvedConfig, options: {
     }
     const nextPromise = next()
     nextPromise.catch(() => {}) // observed below or by the job; never an unhandled rejection
-    const entry: Entry = { view, agent, exec, own, nextPromise, release, timers: [] }
+    const entry: Entry = { outerSignal, view, agent, exec, own, nextPromise, release, timers: [] }
 
     let perAgent = calls.get(agent.id)
     if (perAgent === undefined) calls.set(agent.id, perAgent = new Map())

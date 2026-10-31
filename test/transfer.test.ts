@@ -387,3 +387,19 @@ test('unloading the plugin aborts calls it moved to the background', async () =>
   const done = await r.jobs.finished(moved.jobId)
   assert.equal(done.status, 'killed')
 })
+
+test('R3: a user stop (caller signal) after the transfer still ends the tool; the job settles killed with the reason', async () => {
+  const r = await rig(ON)
+  try {
+    const turn = new AbortController()
+    const pending = start(r, 'slow', { label: 's' }, { callId: 'cstop', signal: turn.signal })
+    await settle()
+    const moved = r.ctx.backgroundTransfer.transfer('cstop')
+    await pending
+    turn.abort(new Error('user pressed stop'))
+    const done = await r.jobs.finished(moved.jobId)
+    assert.equal(done.status, 'killed')
+    assert.equal(done.detail, 'stopped together with the turn (user stop)')
+    assert.equal(r.probe.seen[0]!.signal.aborted, true)
+  } finally { r.dispose() }
+})
