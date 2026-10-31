@@ -1,6 +1,6 @@
 {
   "name": "@anweat/dsh-background",
-  "version": "0.1.0",
+  "version": "0.1.0-dev.1",
   "description": "Run any DeepSeek Harness tool call in the background: one `background_run` tool turns a tool call into an owned job (job_output / job_list / job_kill, completion notice) so the turn is not blocked.",
   "license": "MIT",
   "type": "module",
