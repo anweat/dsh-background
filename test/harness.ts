@@ -155,3 +155,17 @@ export async function rig(config: Record<string, unknown> = {}, options: { withJ
 }
 
 export const resultText = (result: any): string => (result.content as { text?: string }[]).map(block => block.text ?? '').join('\n')
+
+/** A fake agent that the inbox trigger can read: `id` plus an `inbox.nextStep` list the test fills. */
+export function fakeAgent(id: string): { id: string; inbox: { nextStep: { id: string }[]; nextTurn: { id: string }[] } } {
+  return { id, inbox: { nextStep: [], nextTurn: [] } }
+}
+
+let messageCounter = 0
+/** Put a message into the agent's inbox and announce it the way the agent loop does. */
+export function deliver(ctx: any, agent: ReturnType<typeof fakeAgent>, source: Record<string, unknown>, target: 'nextStep' | 'nextTurn' = 'nextStep'): { id: string } {
+  const message = { id: `m-${++messageCounter}`, role: 'user', content: [{ type: 'text', text: 'hi' }], source }
+  agent.inbox[target].push(message)
+  ctx.emit('agent/inbox/inserted', { agent, message })
+  return message
+}

@@ -18,6 +18,15 @@ export const DEFAULT_NATIVE_BACKGROUND_TOOLS: readonly string[] = ['bash', 'pwsh
 /** Tools that control or start jobs. They are never allowed as a target, whatever `denyTools` says. */
 export const JOB_CONTROL_TOOLS: readonly string[] = ['job_output', 'job_list', 'job_kill']
 
+/** What happens to a running foreground tool when the user sends a steering message. */
+export type ToolPolicy = 'wait' | 'background' | 'interrupt'
+
+/**
+ * Tools that write files, change state or need the user's answer. A transfer or interrupt would leave them
+ * half-done or hide the question, so they stay on `wait` unless `toolPolicies` says otherwise. Names from DSH 0.2.1-rc.5.
+ */
+export const DEFAULT_WAIT_ONLY_TOOLS: readonly string[] = ['write', 'edit', 'ask_user_question', 'exit_plan_mode', 'plugin_manager', 'working_directory']
+
 export interface Config {
   /** Model-facing tool name to register (default `background_run`). */
   toolName?: string
@@ -31,6 +40,25 @@ export interface Config {
   denyTools?: string[]
   /** Tools that background themselves; `background_run` refuses them and points at their own route. */
   nativeBackgroundTools?: string[]
+  /**
+   * Track every foreground tool call so it can be moved to the background or interrupted while it runs
+   * (programmatic API, `onUserMessageWhileToolRuns`, `autoBackgroundAfterMs`). Prototype: depends on host internals, off by default.
+   */
+  foregroundControl?: boolean
+  /** What a user steering message does to the foreground tools that are running: wait (host default), move to the background, or interrupt. */
+  onUserMessageWhileToolRuns?: ToolPolicy
+  /** Per-tool override of `onUserMessageWhileToolRuns`. */
+  toolPolicies?: Record<string, ToolPolicy>
+  /** Tools that always `wait` unless `toolPolicies` names them. */
+  waitOnlyTools?: string[]
+  /** Move a foreground tool to the background after it ran this long (milliseconds). Unset: never. */
+  autoBackgroundAfterMs?: number
+  /** Per-tool override of `autoBackgroundAfterMs`; 0 disables it for that tool. */
+  toolAutoBackgroundMs?: Record<string, number>
+  /** How long an interrupted tool may take to stop before the call is released anyway (milliseconds). */
+  interruptGraceMs?: number
+  /** Allow transfer on a host version this prototype was not verified on. */
+  allowUnverifiedHost?: boolean
 }
 
 export const Config: z<Config> = z.object({
@@ -40,6 +68,14 @@ export const Config: z<Config> = z.object({
   maxConcurrentJobs: z.natural().min(1).default(4).description('Live background tool jobs allowed per agent.'),
   denyTools: z.array(z.string()).default([]).description('Tool names that may never run in the background.'),
   nativeBackgroundTools: z.array(z.string()).default([...DEFAULT_NATIVE_BACKGROUND_TOOLS]).description('Tools that background themselves; refused with a pointer to their own route.'),
+  foregroundControl: z.boolean().default(false).description('Track foreground tool calls so they can be moved to the background or interrupted (prototype, host-internals dependent).'),
+  onUserMessageWhileToolRuns: z.union(['wait', 'background', 'interrupt'] as const).default('wait').description('What a user steering message does to running foreground tools.'),
+  toolPolicies: z.dict(z.union(['wait', 'background', 'interrupt'] as const)).default({}).description('Per-tool override of the steering policy.'),
+  waitOnlyTools: z.array(z.string()).default([...DEFAULT_WAIT_ONLY_TOOLS]).description('Tools that always wait unless toolPolicies names them.'),
+  autoBackgroundAfterMs: z.natural().min(1).description('Move a foreground tool to the background after it ran this long.'),
+  toolAutoBackgroundMs: z.dict(z.natural()).default({}).description('Per-tool override of autoBackgroundAfterMs; 0 disables it for the tool.'),
+  interruptGraceMs: z.natural().min(0).default(3000).description('How long an interrupted tool may take to stop before the call is released.'),
+  allowUnverifiedHost: z.boolean().default(false).description('Allow transfer on a host version the prototype was not verified on.'),
 })
 
 /** Config after schema defaults. */
@@ -50,6 +86,14 @@ export interface ResolvedConfig {
   maxConcurrentJobs: number
   denyTools: ReadonlySet<string>
   nativeBackgroundTools: ReadonlySet<string>
+  foregroundControl: boolean
+  onUserMessageWhileToolRuns: ToolPolicy
+  toolPolicies: Readonly<Record<string, ToolPolicy>>
+  waitOnlyTools: ReadonlySet<string>
+  autoBackgroundAfterMs: number | undefined
+  toolAutoBackgroundMs: Readonly<Record<string, number>>
+  interruptGraceMs: number
+  allowUnverifiedHost: boolean
 }
 
 /** Fill defaults for a hand-built config (tests); the Loader already applies the schema. */
@@ -61,5 +105,13 @@ export function resolveConfig(config: Config = {}): ResolvedConfig {
     maxConcurrentJobs: config.maxConcurrentJobs ?? 4,
     denyTools: new Set(config.denyTools ?? []),
     nativeBackgroundTools: new Set(config.nativeBackgroundTools ?? DEFAULT_NATIVE_BACKGROUND_TOOLS),
+    foregroundControl: config.foregroundControl ?? false,
+    onUserMessageWhileToolRuns: config.onUserMessageWhileToolRuns ?? 'wait',
+    toolPolicies: config.toolPolicies ?? {},
+    waitOnlyTools: new Set(config.waitOnlyTools ?? DEFAULT_WAIT_ONLY_TOOLS),
+    autoBackgroundAfterMs: config.autoBackgroundAfterMs,
+    toolAutoBackgroundMs: config.toolAutoBackgroundMs ?? {},
+    interruptGraceMs: config.interruptGraceMs ?? 3000,
+    allowUnverifiedHost: config.allowUnverifiedHost ?? false,
   }
 }

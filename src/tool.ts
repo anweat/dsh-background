@@ -33,6 +33,11 @@ export interface BackgroundTool {
   abortAll(reason: string): void
 }
 
+/** How many live (running or stopping) `kind: 'tool'` jobs one owner has. */
+export function liveToolJobs(jobs: { list(caller?: any): { kind: string; status: string }[] }, ownerId: unknown): number {
+  return jobs.list(ownerId).filter(job => job.kind === JOB_KIND && (job.status === 'running' || job.status === 'stopping')).length
+}
+
 /** Why `background_run` refuses `name` before registering a job, or undefined when it may proceed. */
 export function refusalFor(name: string, config: ResolvedConfig, definitionParams: unknown): string | undefined {
   if (name === config.toolName || name === 'background_run') return `${name} cannot run itself in the background`
@@ -117,9 +122,9 @@ export function createBackgroundTool(ctx: Context, config: ResolvedConfig): Back
         // An unsupported schema shape must not block the call; the nested execution validates again.
       }
 
-      const owned = jobs.list(agent.id).filter(job => job.kind === JOB_KIND && (job.status === 'running' || job.status === 'stopping'))
-      if (owned.length >= config.maxConcurrentJobs) {
-        return invalid(`too many background tool jobs for this agent (${owned.length} of ${config.maxConcurrentJobs} running); wait for one to finish or stop one with job_kill`)
+      const owned = liveToolJobs(jobs, agent.id)
+      if (owned >= config.maxConcurrentJobs) {
+        return invalid(`too many background tool jobs for this agent (${owned} of ${config.maxConcurrentJobs} running); wait for one to finish or stop one with job_kill`)
       }
 
       const callId = `${exec.callId}:bg` as typeof exec.callId

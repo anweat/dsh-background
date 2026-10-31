@@ -11,6 +11,17 @@ import type {} from '@deepseek-ai/dsh-tools'
 import { Config, resolveConfig } from './config.ts'
 import { createBackgroundTool } from './tool.ts'
 import { registerSkillWhenAvailable } from './skill.ts'
+import { installTransfer } from './transfer.ts'
+import type { TransferApi } from './transfer.ts'
+
+export type { TransferApi, RunningCallView, TransferResult, InterruptResult } from './transfer.ts'
+
+declare module '@deepseek-ai/cordis' {
+  interface Context {
+    /** Foreground tool control of dsh-background (present when `foregroundControl` is on). */
+    backgroundTransfer: TransferApi
+  }
+}
 
 export const name = 'dsh-background'
 // Only `tools` is required. `jobs` is read with ctx.get() at call time (the call then fails with the missing piece
@@ -33,6 +44,12 @@ export function apply(ctx: Context, config: Config): void {
   ctx.tools.register(tool.definition)
   // Work that outlives the call must not outlive the code: unloading aborts every live nested call.
   ctx.effect(() => () => tool.abortAll('dsh-background was unloaded'))
+
+  if (resolved.foregroundControl) {
+    const hub = installTransfer(ctx, resolved)
+    ctx.provide('backgroundTransfer', hub.api)
+    ctx.effect(() => () => hub.abortDetached('dsh-background was unloaded'))
+  }
 
   registerSkillWhenAvailable(ctx)
   ;(ctx as any).inject(['systemPrompt'], (promptCtx: any) => {
